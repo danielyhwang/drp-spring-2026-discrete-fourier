@@ -98,7 +98,59 @@ def rgb_to_ycbcr(pixel_data):
     print(ycbcr_data)
     return ycbcr_data
 
+def interleaver(data_array):
+    # This function should interleave the data in the 2D array according to the JPEG zig-zag pattern
+    # The zig-zag pattern can be defined as follows for an 8x8 block:
+    zigzag_order = [
+        (0, 0), (0, 1), (1, 0), (2, 0), (1, 1), (0, 2), (0, 3), (1, 2),
+        (2, 1), (3, 0), (4, 0), (3, 1), (2, 2), (1, 3), (0, 4), (0, 5),
+        (1, 4), (2, 3), (3, 2), (4, 1), (5, 0), (6, 0), (5, 1), (4, 2),
+        (3, 3), (2, 4), (1, 5), (0, 6), (0, 7), (1, 6), (2, 5), (3, 4),
+        (4, 3), (5, 2), (6, 1), (7, 0), (7, 1), (6, 2), (5, 3), (4, 4),
+        (3, 5), (2, 6), (1, 7), (2, 7), (3, 6), (4, 5), (5, 4), (6, 3),
+        (7, 2), (7, 3), (6, 4), (5, 5), (4, 6), (3, 7), (4, 7), (5, 6),
+        (6, 5), (7, 4), (7, 5), (6, 6), (5, 7), (6, 7), (7, 6), (7, 7)
+    ]
+    height = len(data_array)
+    width = len(data_array[0]) if height > 0 else 0
 
-# def jpeg_encode(image, quality=50):
 
-rgb_to_ycbcr(bmp_parser('2x2.bmp'))
+
+    interleaved_data = []
+    for coord in zigzag_order:
+        x, y = coord
+        if x < len(data_array) and y < len(data_array[0]):
+            interleaved_data.append(data_array[x][y])
+    print(interleaved_data)
+    return interleaved_data
+
+
+
+def jpeg_encode(file_path, quality=50):
+    image = bmp_parser(file_path)
+    
+    # This function should take the input image (as a 2D array of pixel data) and perform the JPEG encoding steps
+    # The steps include:
+    # 2. Convert RGB to YCbCr color space
+    ycbcr_data = rgb_to_ycbcr(image)
+    
+    # 3. Subsample the chroma channels (Cb and Cr) if necessary (e.g., 4:2:0 subsampling)
+    # For simplicity, we will skip this step for now
+    
+    # 4. Divide the image into 8x8 blocks and apply the DCT to each block
+    # For simplicity, we will skip this step for now
+    
+    # 5. Quantize the DCT coefficients using a quantization matrix based on the quality factor
+    # For simplicity, we will skip this step for now
+    
+    # 5. Interleave the quantized coefficients according to the zig-zag pattern
+    interleaved_data = interleaver(ycbcr_data)
+    
+    # 6. Perform entropy coding (e.g., Huffman coding) on the interleaved data
+    # For simplicity, we will skip this step for now
+    
+    return interleaved_data
+    
+
+
+print(bmp_parser('2x2.bmp'))
