@@ -60,7 +60,7 @@ def bmp_parser(file_path, ost=False):
                     row.append((red, green, blue))
                 pixel_data.append(row)
         
-        # print(pixel_data)
+        print(pixel_data)
         return pixel_data
         
 def rgb_to_ycbcr(pixel_data):
@@ -95,7 +95,7 @@ def rgb_to_ycbcr(pixel_data):
                 cr = int(0.5 * r - 0.418688 * g - 0.081312 * b + 128)
                 ycbcr_row.append((y, cb, cr))
             ycbcr_data.append(ycbcr_row)
-    # print(ycbcr_data)
+    print(ycbcr_data)
     return ycbcr_data
 
 
