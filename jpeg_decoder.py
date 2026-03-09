@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import numpy as np
 from typing import List, Any
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,7 @@ def write_bmp():
 
 
 def get_DQT(file_handle) -> List[Any]:
+    DQT = np.zeros((8, 8))
     pass
 def get_DHT(file_handle) -> List[Any]:
     pass
@@ -96,5 +98,4 @@ def read_jpeg(file_name: str):
 parser = argparse.ArgumentParser()
 parser.add_argument('filename')
 args = parser.parse_args()
-print(args.filename)
 read_jpeg(args.filename)
