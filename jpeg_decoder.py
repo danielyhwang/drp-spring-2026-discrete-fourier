@@ -3,20 +3,67 @@ import logging
 import os
 import numpy as np
 from typing import List, Any
+from struct import unpack
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(levelname)s - %(message)s' # Optional: makes the output cleaner
+    format='%(levelname)s - %(message)s'
 )
+
+interleaved_order =  [[0, 1, 5, 6, 14, 15, 27, 28], 
+                      [2, 4, 7, 13, 16, 26, 29, 42],
+                      [3, 8, 12, 17, 25, 30, 41, 43],
+                      [9, 11, 18, 24, 31, 40, 44, 53],
+                      [10, 19, 23, 32, 39, 45, 52, 54], 
+                      [20, 22, 33, 38, 46, 51, 55, 60], 
+                      [21, 34, 37, 47, 50, 56, 59, 61], 
+                      [35, 36, 48, 49, 57, 58, 62, 63]]
 
 def write_bmp():
     pass
 
 
-def get_DQT(file_handle) -> List[Any]:
+def get_DQT(DQTs, file_handle):
     DQT = np.zeros((8, 8))
-    pass
+    Lq = int.from_bytes(file_handle.read(2), byteorder='big')
+    
+
+    interleaved_DQT = None
+    remaining_length = Lq - 2
+    
+    while remaining_length != 0:
+        PqTq = file_handle.read(1)[0]
+        remaining_length -= 1
+        Pq = (PqTq >> 4) & 0xf
+
+        if not 0 <= Pq <= 1:
+            logger.error("Quantization Precision not in range 0-1!")
+            exit()
+        Tq = PqTq & 0xf
+        if not 0 <= Tq <= 3:
+            logger.error("Quantization Table Identifier not in range 0-3!")
+            exit()
+
+        precision_strings = ["8-bit", "16-bit"]
+
+        logger.debug(
+            f"""DQT Segment Length: {Lq}\n"""
+            f"""\tQuantization Precision: {precision_strings[Pq]}\n"""
+            f"""\tTable Identifier: {Tq}"""
+        )
+
+        DQT = np.zeros((8, 8))
+        if (Pq == 0):
+            interleaved_DQT = unpack(">64B", file_handle.read(64))
+            remaining_length -= 64
+        else:
+            interleaved_DQT = unpack(">64H", file_handle.read(128))
+            remaining_length -= 128
+        for i in range(64):
+            x, y = i // 8, i % 8
+            DQT[x][y] = interleaved_DQT[interleaved_order[x][y]]
+        DQTs[Tq] = DQT
 def get_DHT(file_handle) -> List[Any]:
     pass
 def read_jpeg(file_name: str):
@@ -28,7 +75,7 @@ def read_jpeg(file_name: str):
             exit()
         logger.debug(f"Correct SOI marker. Proceeding.")
         
-        DQT = None
+        DQTs = [[] for _ in range(4)]
         DHT = None
 
         while (True):
@@ -56,7 +103,7 @@ def read_jpeg(file_name: str):
                 if (JFIF_major_ver != 1):
                     logger.warn(f"JFIF Major Version {JFIF_major_ver} != 1")
                 if not 0 <= JFIF_minor_ver <= 2:
-                    logger.warn(f"JFIF Minor Version {JFIF_minor_ver} not in range 0-2")
+                    logger.warn(f"JFIF Minor Version {JFIF_minor_ver} not in range .00-.02")
                 if not 0 <= units <= 2:
                     logger.warn(f"Invalid units specifier {units}")
 
@@ -65,14 +112,14 @@ def read_jpeg(file_name: str):
 
                 logger.debug(
                     f"APP0 Parsed as\n"
-                    f"    APP0 length: {APP0_length}\n"
-                    f"    JFIF identifier: \"{JFIF_identifier}\"\n"
-                    f"    JFIF version: {JFIF_major_ver}.0{JFIF_minor_ver}\n"
-                    f"    X, Y units: {unit_strings[units]}\n"
-                    f"    Xdensity: {Xdensity}\n"
-                    f"    Ydensity: {Ydensity}\n"
-                    f"    Xthumbnail: {Xthumbnail}\n"
-                    f"    Ythumbnail: {Ythumbnail}"
+                    f"\tAPP0 length: {APP0_length}\n"
+                    f"\tJFIF identifier: \"{JFIF_identifier}\"\n"
+                    f"\tJFIF version: {JFIF_major_ver}.0{JFIF_minor_ver}\n"
+                    f"\tX, Y units: {unit_strings[units]}\n"
+                    f"\tXdensity: {Xdensity}\n"
+                    f"\tYdensity: {Ydensity}\n"
+                    f"\tXthumbnail: {Xthumbnail}\n"
+                    f"\tYthumbnail: {Ythumbnail}"
                 )
             elif marker == b'\xFF\xE1':
                 logger.warning("EXIF detected! Header Parsing not supported!")
@@ -82,10 +129,11 @@ def read_jpeg(file_name: str):
                 logger.warning("Unsupported APPn Type detected!")
             elif marker == b'\xFF\xDB':
                 logger.debug("DQT marker found! Parsing DQT!")
-                DQT = get_DQT(f)
+                get_DQT(DQTs, f)
             elif marker == b'\xFF\xC4':
                 DHT = get_DHT(f)
-                logger.debug("DHT marker found! Parsing DHT!")
+                logger.error("DHT marker found! DHT based encoding methods not supported!")
+                exit()
             else:
                 logger.error(f"Unsupported segment marker: \"{marker.hex()}\"!")
                 raise NotImplementedError(f"Unsupported segment marker: \'{marker.hex(sep='\'').upper()}!")
