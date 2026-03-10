@@ -4,6 +4,7 @@ import os
 import numpy as np
 from typing import List, Any
 from struct import unpack
+from constants import JFIF_unit_strings, SOF_type_strings
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -77,6 +78,7 @@ def read_jpeg(file_name: str):
         
         DQTs = [[] for _ in range(4)]
         DHT = None
+        SOF_type = None
 
         while (True):
             marker = f.read(2)
@@ -107,15 +109,12 @@ def read_jpeg(file_name: str):
                 if not 0 <= units <= 2:
                     logger.warn(f"Invalid units specifier {units}")
 
-
-                unit_strings = ["pixels", "pixels/inch", "pixels/cm"]
-
                 logger.debug(
                     f"APP0 Parsed as\n"
                     f"\tAPP0 length: {APP0_length}\n"
                     f"\tJFIF identifier: \"{JFIF_identifier}\"\n"
                     f"\tJFIF version: {JFIF_major_ver}.0{JFIF_minor_ver}\n"
-                    f"\tX, Y units: {unit_strings[units]}\n"
+                    f"\tX, Y units: {JFIF_unit_strings[units]}\n"
                     f"\tXdensity: {Xdensity}\n"
                     f"\tYdensity: {Ydensity}\n"
                     f"\tXthumbnail: {Xthumbnail}\n"
@@ -134,10 +133,31 @@ def read_jpeg(file_name: str):
                 DHT = get_DHT(f)
                 logger.error("DHT marker found! DHT based encoding methods not supported!")
                 exit()
+            elif b'\xFF\xC0' <= marker <= b'\xFF\xCF':
+                SOF_type = marker[1] - 0xC0
+                break
             else:
                 logger.error(f"Unsupported segment marker: \"{marker.hex()}\"!")
                 raise NotImplementedError(f"Unsupported segment marker: \'{marker.hex(sep='\'').upper()}!")
         
+        component_specific_headers = []
+        # begin SOF parsing
+
+        SOF_header = f.read(8)
+        Lf = int.from_bytes(SOF_header[0:2], byteorder='big')
+        P = SOF_header[2]
+        Y = int.from_bytes(SOF_header[3:5], byteorder='big')
+        X = int.from_bytes(SOF_header[5:7], byteorder='big')
+        Nf = SOF_header[7]
+
+        logger.debug(
+                    f"SOF Header Type: {SOF_type_strings[SOF_type]}\n"
+                    f"\tHeader Length: {Lf}\n"
+                    f"\tSample Precision: {P}\n"
+                    f"\tNumber of Lines: {Y}\n"
+                    f"\tSamples per Line: {X}\n"
+                    f"\tNumber of Image Components: {Nf}"
+        )            
 
         
 
