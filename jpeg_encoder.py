@@ -124,33 +124,91 @@ def interleaver(data_array):
     print(interleaved_data)
     return interleaved_data
 
+def make_block(data_array, block_size=8):
+    # This function should divide the input data array into blocks of the specified size (e.g., 8x8)
+    blocks = []
+    for i in range(0, len(data_array), block_size):
+        for j in range(0, len(data_array[0]), block_size):
+            block = [row[j:j+block_size] for row in data_array[i:i+block_size]]
+            blocks.append(block)
+    print(blocks)
+    return blocks
 
+def quantization(block, luminance=True, quality=50):
+    # This function should quantize an 8x8 block based on the specified quality factor
+    # The quality factor can be used to scale the standard JPEG quantization matrix
+    # Namely, a higher quality factor should result in a lower quantization step size 
+    # (i.e., less aggressive quantization), while a lower quality factor should result 
+    # in a higher quantization step size (i.e., more aggressive quantization)
+    # Quality should usually be between 1 and 100, where 1 is the lowest quality (most aggressive quantization) and 100 is the highest quality (least aggressive quantization)
+    # quality = 50 is standard
+
+    standard_luminance_quantization_matrix = [
+        [16, 11, 10, 16, 24, 40, 51, 61],
+        [12, 12, 14, 19, 26, 58, 60, 55],
+        [14, 13, 16, 24, 40, 57, 69, 56],
+        [14, 17, 22, 29, 51, 87, 80, 62],
+        [18, 22, 37, 56, 68,109,103, 77],
+        [24, 35, 55, 64, 81,104,113, 92],
+        [49, 64, 78, 87,103,121,120,101],
+        [72, 92, 95, 98,112,100,103, 99]
+    ]
+    standard_chrominance_quantization_matrix = [
+        [17, 18, 24, 47, 99, 99, 99, 99],
+        [18, 21, 26, 66, 99, 99, 99, 99],
+        [24, 26, 56, 99, 99, 99, 99, 99],
+        [47, 66, 99, 99, 99, 99, 99, 99],
+        [99, 99, 99, 99, 99, 99, 99, 99],
+        [99, 99, 99, 99, 99, 99, 99, 99],
+        [99, 99, 99, 99, 99, 99, 99, 99],
+        [99, 99, 99, 99, 99, 99, 99, 99]
+    ]
+    if luminance:
+        quantization_matrix = [[max(1, int(value / (quality / 50))) for value in row] for row in standard_luminance_quantization_matrix]
+    else:
+        quantization_matrix = [[max(1, int(value / (quality / 50))) for value in row] for row in standard_chrominance_quantization_matrix]
+    quantized_block = [[round(block[i][j] / quantization_matrix[i][j]) for j in range(len(block[0]))] for i in range(len(block))]
+    return quantized_block
 
 def jpeg_encode(file_path, quality=50):
+    # This function should take the input file (as a .bmp) and perform the JPEG encoding steps
+    # The steps include:
+    # 1. Read the input image file and extract the pixel data
     image = bmp_parser(file_path)
     
-    # This function should take the input image (as a 2D array of pixel data) and perform the JPEG encoding steps
-    # The steps include:
-    # 2. Convert RGB to YCbCr color space
+    # 2. Convert RGB to YCbCr color space and perform level shifting (subtract 128 from the Y, Cb, and Cr values, assuming 8-bit samples)
     ycbcr_data = rgb_to_ycbcr(image)
-    
+    y = [[pixel[0] for pixel in row] for row in ycbcr_data]
+    cb = [[pixel[1] for pixel in row] for row in ycbcr_data]
+    cr = [[pixel[2] for pixel in row] for row in ycbcr_data]
+
+    level_shifted_y = [[value - 128 for value in row] for row in y]
+    level_shifted_cb = [[value - 128 for value in row] for row in cb]
+    level_shifted_cr = [[value - 128 for value in row] for row in cr]
+
     # 3. Subsample the chroma channels (Cb and Cr) if necessary (e.g., 4:2:0 subsampling)
     # For simplicity, we will skip this step for now
     
     # 4. Divide the image into 8x8 blocks and apply the DCT to each block
-    # For simplicity, we will skip this step for now
-    
+    y_blocks = make_block(level_shifted_y)
+    cb_blocks = make_block(level_shifted_cb)
+    cr_blocks = make_block(level_shifted_cr)
+    y_dct_blocks = [FFT2D.fft2d(block) for block in y_blocks]
+    cb_dct_blocks = [FFT2D.fft2d(block) for block in cb_blocks]
+    cr_dct_blocks = [FFT2D.fft2d(block) for block in cr_blocks]
+
     # 5. Quantize the DCT coefficients using a quantization matrix based on the quality factor
-    # For simplicity, we will skip this step for now
-    
-    # 5. Interleave the quantized coefficients according to the zig-zag pattern
-    interleaved_data = interleaver(ycbcr_data)
-    
-    # 6. Perform entropy coding (e.g., Huffman coding) on the interleaved data
-    # For simplicity, we will skip this step for now
-    
-    return interleaved_data
-    
+    quantized_y_blocks = [quantization(block, luminance=True, quality=quality) for block in y_dct_blocks]
+    quantized_cb_blocks = [quantization(block, luminance=False, quality=quality) for block in cb_dct_blocks]
+    quantized_cr_blocks = [quantization(block, luminance=False, quality=quality) for block in cr_dct_blocks]
+
+    # 6. Interleave the quantized coefficients according to the zig-zag pattern
+    interleaved_y_data = interleaver(quantized_y_blocks)
+    interleaved_cb_data = interleaver(quantized_cb_blocks)
+    interleaved_cr_data = interleaver(quantized_cr_blocks)
+
+    # 7. Perform entropy coding (e.g., Huffman coding) on the interleaved data
+        
 
 
 print(bmp_parser('2x2.bmp'))
