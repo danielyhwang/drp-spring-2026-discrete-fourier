@@ -56,7 +56,9 @@ def get_DQT(DQTs, file_handle):
 
 
 def get_DHT(DHTs, file_handle):
-    pass
+    Lh = int.from_bytes(file_handle.read(2), byteorder="big")
+    file_handle.seek(-2, os.SEEK_CUR)
+    file_handle.read(Lh)
 
 
 def read_jpeg(file_name: str):
@@ -91,7 +93,7 @@ def read_jpeg(file_name: str):
                     APP0
                 )
 
-                if JFIF_identifier != "JFIF\0":
+                if JFIF_identifier != b"JFIF\x00":
                     logger.warning(f"JFIF Identifier \"{JFIF_identifier}\" != \"JFIF\\0\"")
                 if JFIF_major_ver != 1:
                     logger.warning(f"JFIF Major Version {JFIF_major_ver} != 1")
@@ -113,17 +115,20 @@ def read_jpeg(file_name: str):
                 )
             elif marker == b'\xFF\xE1':
                 logger.warning("EXIF detected! Header Parsing not supported!")
+                return
             elif marker == b'\xFF\xE2':
                 logger.warning("EXIF detected! Header Parsing not supported")
+                return
             elif b'\xFF\xE0' <= marker <= b'\xFF\xEF':
                 logger.warning("Unsupported APPn Type detected!")
+                return
             elif marker == b'\xFF\xDB':
                 logger.debug("DQT marker found! Parsing DQT!")
                 get_DQT(DQTs, f)
             elif marker == b'\xFF\xC4':
                 get_DHT(DHTs, f)
-                logger.error("DHT marker found! DHT based encoding methods not supported!")
-                exit()
+                logger.debug("DHT marker found! \"Parsing\" DHT!")
+                # exit()
             elif b'\xFF\xC0' <= marker <= b'\xFF\xCF':
                 SOF_type = marker[1] - 0xC0
                 SOF_header = f.read(8)
@@ -165,6 +170,12 @@ def read_jpeg(file_name: str):
                                  f"\t\tVertical Sampling Factor: {Vi}\n"
                                  f"\t\tQuantization Table Destination: {Tqi}"
                                  )
+            elif marker == b'\xFF\xDA':
+                logger.debug(f"SOS Component found! Parsing SOS!")
+                SOS_length = int.from_bytes(f.read(2), byteorder="big")
+                f.seek(-2, os.SEEK_CUR)
+                f.read(SOS_length)
+                pass
             else:
                 logger.error(f"Unsupported segment marker: \"{marker.hex()}\"!")
                 return
