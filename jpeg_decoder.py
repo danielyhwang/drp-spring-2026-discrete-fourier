@@ -121,7 +121,7 @@ def read_jpeg(file_name: str):
                     APP0
                 )
 
-                if JFIF_identifier != "JFIF\0":
+                if JFIF_identifier != b"JFIF\x00":
                     logger.warning(f"JFIF Identifier \"{JFIF_identifier}\" != \"JFIF\\0\"")
                 if JFIF_major_ver != 1:
                     logger.warning(f"JFIF Major Version {JFIF_major_ver} != 1")
@@ -143,10 +143,13 @@ def read_jpeg(file_name: str):
                 )
             elif marker == b'\xFF\xE1':
                 logger.warning("EXIF detected! Header Parsing not supported!")
+                return
             elif marker == b'\xFF\xE2':
                 logger.warning("EXIF detected! Header Parsing not supported")
+                return
             elif b'\xFF\xE0' <= marker <= b'\xFF\xEF':
                 logger.warning("Unsupported APPn Type detected!")
+                return
             elif marker == b'\xFF\xDB':
                 logger.debug("DQT marker found! Parsing DQT!")
                 get_DQT(DQTs, f)
@@ -194,8 +197,11 @@ def read_jpeg(file_name: str):
                                  f"\t\tQuantization Table Destination: {Tqi}"
                                  )
             elif marker == b'\xFF\xDA':
-                logger.debug("SOS Marker found! Reading image data!")
-                break
+                logger.debug(f"SOS Component found! Parsing SOS!")
+                SOS_length = int.from_bytes(f.read(2), byteorder="big")
+                f.seek(-2, os.SEEK_CUR)
+                f.read(SOS_length)
+                pass
             else:
                 logger.error(f"Unsupported segment marker: \"{marker.hex()}\"!")
                 return
