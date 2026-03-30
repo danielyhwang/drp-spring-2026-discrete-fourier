@@ -1,6 +1,8 @@
 import argparse
 import logging
 import os
+from sys import byteorder
+
 import numpy as np
 from typing import List, Any
 from struct import unpack
@@ -54,9 +56,37 @@ def get_DQT(DQTs, file_handle):
             DQT[x][y] = interleaved_DQT[interleaved_order[x][y]]
         DQTs[Tq] = DQT
 
+def get_codewords(length_table) -> List[Any]:
+    counter = 0
+    codewords = []
+    for length in length_table:
+        for i in range(length):
+            codewords.append(counter)
+            counter += 1
+        counter = counter * 2
+    return codewords
 
 def get_DHT(DHTs, file_handle):
-    pass
+    Lh = int.from_bytes(file_handle.read(2), byteorder='big')
+    remaining_length = Lh - 2
+
+    while remaining_length > 0:
+        TcTh = file_handle.read(1)[0]
+        Tc = (TcTh >> 4) & 0xF
+        Th = TcTh & 0xF
+        length_table = [0] * 16 # table[i] = codewords with length i + 1
+        for i in range(16):
+            length_table[i] = file_handle.read(1)[0]
+        remaining_length -= 17
+
+        codewords = get_codewords(length_table)
+        decrypt_table = {}
+        for codeword in codewords:
+            decrypt_table[codeword] = file_handle.read(1)[0]
+            remaining_length -= 1
+        DHTs[(Tc, Th)] = decrypt_table.copy()
+
+    return
 
 
 def read_jpeg(file_name: str):
@@ -69,7 +99,7 @@ def read_jpeg(file_name: str):
         logger.debug(f"Correct SOI marker. Proceeding.")
 
         DQTs = [[] for _ in range(4)]
-        DHTs = None
+        DHTs = {}
         SOF_type = None
         C = []
         H = []
@@ -122,8 +152,6 @@ def read_jpeg(file_name: str):
                 get_DQT(DQTs, f)
             elif marker == b'\xFF\xC4':
                 get_DHT(DHTs, f)
-                logger.error("DHT marker found! DHT based encoding methods not supported!")
-                exit()
             elif b'\xFF\xC0' <= marker <= b'\xFF\xCF':
                 SOF_type = marker[1] - 0xC0
                 SOF_header = f.read(8)
@@ -165,11 +193,19 @@ def read_jpeg(file_name: str):
                                  f"\t\tVertical Sampling Factor: {Vi}\n"
                                  f"\t\tQuantization Table Destination: {Tqi}"
                                  )
+            elif marker == b'\xFF\xDA':
+                logger.debug("SOS Marker found! Reading image data!")
+                break
             else:
                 logger.error(f"Unsupported segment marker: \"{marker.hex()}\"!")
                 return
 
         # begin SOF parsing
+        SOF_marker = f.read(2)
+        if SOF_marker != b'\xFF\xD8':
+            logger.error("SOMETHING WENT VERY WRONG!")
+            exit()
+        raise NotImplementedError("Image reading time!")
 
 
 parser = argparse.ArgumentParser()
