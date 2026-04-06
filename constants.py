@@ -1,4 +1,5 @@
 from collections import defaultdict
+from enum import Enum
 
 JFIF_unit_strings = ["pixels", "pixels/inch", "pixels/cm"]
 SOF_type_strings = defaultdict(lambda: "Unknown SOF type", {
@@ -18,3 +19,16 @@ interleaved_order =  [[0, 1, 5, 6, 14, 15, 27, 28],
                       [20, 22, 33, 38, 46, 51, 55, 60],
                       [21, 34, 37, 47, 50, 56, 59, 61],
                       [35, 36, 48, 49, 57, 58, 62, 63]]
+
+DQT_PRECISION_8_BIT = 0
+DQT_PRECISION_16_BIT = 1
+
+DQT_PRECISION_STRINGS = {
+    DQT_PRECISION_8_BIT : "8-bit",
+    DQT_PRECISION_16_BIT: "16-bit"
+}
+
+TABLE_CLASS_STRINGS = {
+    0: "DC or lossless table",
+    1: "AC table"
+}
