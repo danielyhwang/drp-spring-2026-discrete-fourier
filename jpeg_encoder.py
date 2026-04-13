@@ -1,6 +1,7 @@
 import math
 import os
 import struct
+import argparse
 
 
 BLOCK_SIZE = 8
@@ -491,3 +492,25 @@ class BitWriter:
             pad = (1 << (8 - self._count)) - 1
             self.write_bits(pad, 8 - self._count)
         return bytes(self._output)
+
+
+def main():
+    # Simple command-line entry point for encoding a BMP into a JPEG.
+    parser = argparse.ArgumentParser(description="Encode a BMP image as a baseline JPEG.")
+    parser.add_argument("input_bmp", help="Path to the input BMP image")
+    parser.add_argument("output_jpg", nargs="?", help="Path to the output JPEG image")
+    parser.add_argument(
+        "-q",
+        "--quality",
+        type=int,
+        default=50,
+        help="JPEG quality from 1 to 100 (default: 50)",
+    )
+    args = parser.parse_args()
+
+    output_path = jpeg_encode(args.input_bmp, quality=args.quality, output_path=args.output_jpg)
+    print(output_path)
+
+
+if __name__ == "__main__":
+    main()
