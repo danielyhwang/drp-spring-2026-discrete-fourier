@@ -37,6 +37,7 @@ class JPEGDecoder:
         self.H: List[int] = []
         self.V: List[int] = []
         self.Tq: List[int] = []
+        self.scan_components: Dict[int, Dict[str, int]] = {}
     def __enter__(self):
         return self
 
@@ -46,8 +47,6 @@ class JPEGDecoder:
     def get_DQT(self):
         DQT = np.zeros((8, 8))
         Lq = int.from_bytes(self.file_handle.read(2), byteorder='big')
-
-
         remaining_length = Lq - 2
 
         while remaining_length != 0:
@@ -192,8 +191,46 @@ class JPEGDecoder:
                          f"\t\tVertical Sampling Factor: {Vi}\n"
                          f"\t\tQuantization Table Destination: {Tqi}"
                          )
+
     def get_SOS(self):
-        pass
+        Ls = int.from_bytes(self.file_handle.read(2), byteorder='big')
+        Ns = self.file_handle.read(1)[0]
+
+        logger.debug(f"SOS Header Length: {Ls}\n\t\tNumber of Components in Scan: {Ns}")
+
+
+
+        for i in range(Ns):
+            Cs = self.file_handle.read(1)[0]
+            TdTa = self.file_handle.read(1)[0]
+
+            Td = (TdTa >> 4) & 0xF
+            Ta = TdTa & 0xF
+
+            self.scan_components[Cs] = {'DC': Td, 'AC': Ta}
+
+            logger.debug(
+                f"Component Selector: {Cs}\n"
+                f"\t\tDC Table Destination: {Td}\n"
+                f"\t\tAC Table Destination: {Ta}"
+            )
+
+        Ss, Se, AhAl = unpack(">BBB", self.file_handle.read(3))
+
+        self.Ss = Ss
+        self.Se = Se
+        self.Ah = (AhAl >> 4) & 0xF
+        self.Al = AhAl & 0xF
+
+        logger.debug(
+            f"Spectral Selection Start (Ss): {self.Ss}\n"
+            f"\t\tSpectral Selection End (Se): {self.Se}\n"
+            f"\t\tSuccessive Approximation High (Ah): {self.Ah}\n"
+            f"\t\tSuccessive Approximation Low (Al): {self.Al}"
+        )
+
+        # Note: Immediately after reading these bytes, self.file_handle is now
+        # pointing to the very first byte of the compressed image bitstream.
     def read_jpeg(self):
         SOI_marker = self.file_handle.read(2)
         if SOI_marker != b'\xFF\xD8':
@@ -228,22 +265,22 @@ class JPEGDecoder:
         raise NotImplementedError("Image reading time!")
         return []
 
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename')
+    parser.add_argument('-debug', '-g', action='store_true')
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument('filename')
-parser.add_argument('-debug', '-g', action='store_true')
-args = parser.parse_args()
+    if args.debug:
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format='%(levelname)s - %(message)s'
+        )
+    else:
+        logging.basicConfig(
+            level=logging.WARNING,
+            format='%(levelname)s - %(message)s'
+        )
 
-if args.debug:
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(levelname)s - %(message)s'
-    )
-else:
-    logging.basicConfig(
-        level=logging.WARNING,
-        format='%(levelname)s - %(message)s'
-    )
-
-with JPEGDecoder(args.filename) as image_reader:
-    RGB_tables = image_reader.read_jpeg()
+    with JPEGDecoder(args.filename) as image_reader:
+        RGB_tables = image_reader.read_jpeg()
