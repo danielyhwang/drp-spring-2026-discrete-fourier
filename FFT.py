@@ -48,5 +48,5 @@ def _fft(signal, inverse):
     ) 
 
 
-x = [0,1,0,1,0,1]
-print(FFT(x))
+# x = [0,1,0,1,0,1]
+# print(FFT(x))

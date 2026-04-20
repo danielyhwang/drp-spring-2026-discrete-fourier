@@ -1,4 +1,14 @@
 .venv/
-*.pyc
 .idea/
 *.bmp
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dylib
+*.dll
+*.log
+*.tmp
+*.bak
